@@ -5,7 +5,7 @@
         <script type="text/javascript" src="https://d3js.org/d3.v6.min.js"></script>
     </head>
     <body>
-        <svg width="1200" height="15000" id="#container">
+        <svg width="100%" height="17000" id="#container">
             <g id="graph"></g>
             <g id="cities"></g>
         </svg>
@@ -18,80 +18,64 @@
             container.attr('scrollHeight', svgHeight + 500);
         }
 
-        function showData(data) {
-            console.log(data);
-            console.log(container);
-            // transforming data
+        function showData(data) {            // transforming data
             const stateToFunds = {};
             for(let city of data){
                 const state = city['State/UT'];
-                const funds = city['Total Central Release'];
-                const utilisedFunds = city['Utilisation of GOI Funds'];
+                const funds = +city['Total Central Release'];
+                const utilisedFunds = +city['Utilisation of GOI Funds'];
                 const cityName = city['Name of City'];
+                const funds2015 = +city['During 2015-16'];
+                const funds2016 = +city['During 2016-17'];
+                const funds2017 = +city['During 2017-18'];
+                const funds2018 = +city['During 2018-19'];
                 if(state !== 'Total')
                 {
                     if(state in stateToFunds){
-                        stateToFunds[state]['funds'] += +funds;
-                        stateToFunds[state]['utilisedFunds'] += +utilisedFunds;
+                        stateToFunds[state]['availableFunds'] += funds;
+                        stateToFunds[state]['utilisedFunds'] += utilisedFunds;
+                        stateToFunds[state]['fundsPerYear'][0] += funds2015;
+                        stateToFunds[state]['fundsPerYear'][1] += funds2016;
+                        stateToFunds[state]['fundsPerYear'][2] += funds2017;
+                        stateToFunds[state]['fundsPerYear'][3] += funds2018;
+
                     } else {
                         stateToFunds[state] = {}
-                        stateToFunds[state]['funds'] = +funds;
-                        stateToFunds[state]['utilisedFunds'] = +utilisedFunds;
+                        stateToFunds[state]['availableFunds'] = funds;
+                        stateToFunds[state]['utilisedFunds'] = utilisedFunds;
                         stateToFunds[state]['cities'] = [];
+                        stateToFunds[state]['fundsPerYear'] = [0, 0, 0, 0];
                     }
-                    stateToFunds[state]['cities'].push({city:cityName, funds: +funds});
+                    stateToFunds[state]['cities'].push({city:cityName, availableFunds: funds-utilisedFunds, utilisedFunds: utilisedFunds});
                 }
             } 
 
-            // const stateToFundsArray = Object.keys(stateToFunds).map(key => ({state: key, data:stateToFunds[key]}))
-            // stateToFundsArray.sort((a, b) =>  b.data.funds - a.data.funds)
-            // console.log(stateToFundsArray);
-
-            // const subgroups = ['funds', 'utilisedFunds'];
-            // const statesDataArray = stateToFundsArray.map(d => d.data);
-            // console.log(statesDataArray);
-            // const stackedData = d3.stack().keys(subgroups)(statesDataArray);
-            // console.log(stackedData);
-
             var stateToFundsArray = Object.keys(stateToFunds).map(key => ({state: key, ...stateToFunds[key]}));
-            stateToFundsArray.forEach(state => state.funds-=state.utilisedFunds);
-            stateToFundsArray.sort((a, b) =>  (b.funds+b.utilisedFunds) - (a.funds+a.utilisedFunds));
+            stateToFundsArray.forEach(state => state.availableFunds-=state.utilisedFunds);
+            stateToFundsArray.sort((a, b) =>  (b.availableFunds+b.utilisedFunds) - (a.availableFunds+a.utilisedFunds));
             console.log(stateToFundsArray);
 
-            const subgroups = ['funds', 'utilisedFunds'];
+            // creating stacked data
+            const subgroups = ['utilisedFunds', 'availableFunds'];
             const stackedData = d3.stack().keys(subgroups)(stateToFundsArray);
-            console.log(stackedData);
             var color = d3.scaleOrdinal()
                 .domain(subgroups)
                 .range(['#e41a1c','#4daf4a']);
 
             // scalling
-            // const min = d3.min(stateToFundsArray, d => +d.data.funds);
-            // const median = d3.median(stateToFundsArray, d => +d.data.funds);
-            // const max = d3.max(stateToFundsArray, d => +d.data.funds);
-            const min = d3.min(stateToFundsArray, d => +d.funds+d.utilisedFunds);
-            const median = d3.median(stateToFundsArray, d => +d.funds+d.utilisedFunds);
-            const max = d3.max(stateToFundsArray, d => +d.funds+d.utilisedFunds);
+            const min = d3.min(stateToFundsArray, d => +d.availableFunds+d.utilisedFunds);
+            const median = d3.median(stateToFundsArray, d => +d.availableFunds+d.utilisedFunds);
+            const max = d3.max(stateToFundsArray, d => +d.availableFunds+d.utilisedFunds);
 
             const height = 500;
             const width = 500;
             const sideShift = 150;
 
-            // raiseContainerHeight(height);
-
             // scalling
             const widthScale = d3.scaleLinear().domain([0, max]).range([0, width]);
             const cityScale = d3.scaleBand().domain(stateToFundsArray.map(d => d.state)).range([0, height]).padding(0.2);
-            const colorScale = d3.scaleLinear().domain([min, median, max]).range(['yellow', 'orange', 'red']);
             
             // binding the data
-            // const drawSpace = d3.select('#graph').selectAll('rect').data(stateToFundsArray);
-            // drawSpace.enter().append('a').attr('href', d => `#${d.state}`).append('rect')
-            //     .attr('width', d => widthScale(d.data.funds))
-            //     .attr("height", cityScale.bandwidth())
-            //     .attr('x', sideShift)
-            //     .attr('y', d => cityScale(d.state))
-            //     .attr('fill', d => colorScale(d.data.funds));
             const drawSpace = d3.select('#graph').selectAll('g').data(stackedData);
             drawSpace.enter().append("g")
                 .attr("fill", d => color(d.key))
@@ -99,7 +83,7 @@
             .data(d => d)
             .enter()
             .append('rect')
-                .attr('width', d => {console.log(d); return widthScale(d[1] - d[0])})
+                .attr('width', d => widthScale(d[1] - d[0]))
                 .attr("height", cityScale.bandwidth())
                 .attr('x', d => sideShift + widthScale(d[0]))
                 .attr('y', d => cityScale(d.data.state));
@@ -114,22 +98,30 @@
                 .style('transform', 'translate(' + sideShift + 'px,' + height + 'px)');
             yAxis.call(axisL)
                 .style('transform', 'translate(' + sideShift + 'px,0px)');
-
-            // display city data
-            // for(let i=0; i<stateToFundsArray.length; i++)
-            //     displayCity(stateToFundsArray[i].data.cities, stateToFundsArray[i].state, height + 200, i);
-
+                
             // display city data
             for(let i=0; i<stateToFundsArray.length; i++)
-                displayCity(stateToFundsArray[i].cities, stateToFundsArray[i].state, height + 200, i);
+                displayCity(stateToFundsArray[i], stateToFundsArray[i].state, height + 200, i);
         }
 
-        function displayCity(data, state, verticalMovementOffset, i){
+        function displayCity(data, state, verticalMovementOffset, index){
+            const fundsPerYear = data.fundsPerYear;
+            const citiesData = data.cities;
+
             // sorting based on funds
-            data.sort((a, b) => b.funds - a.funds);
-            const min = d3.min(data, d => +d.funds);
-            const median = d3.median(data, d => +d.funds);
-            const max = d3.max(data, d => +d.funds);
+            citiesData.sort((a, b) =>  (b.availableFunds+b.utilisedFunds) - (a.availableFunds+a.utilisedFunds));
+            
+            // scalling
+            const min = d3.min(citiesData, d => +d.availableFunds+d.utilisedFunds);
+            const median = d3.median(citiesData, d => +d.availableFunds+d.utilisedFunds);
+            const max = d3.max(citiesData, d => +d.availableFunds+d.utilisedFunds);
+
+            // creating stacked data
+            const subgroups = ['utilisedFunds', 'availableFunds'];
+            const stackedData = d3.stack().keys(subgroups)(citiesData);
+            var color = d3.scaleOrdinal()
+                .domain(subgroups)
+                .range(['#e41a1c','#4daf4a']);
 
             const height = 300;
             const width = 500;
@@ -137,18 +129,23 @@
 
             // scalling
             const barHeightScale = d3.scaleLinear().domain([0, max]).range([height, 0]);
-            const cityScale = d3.scaleBand().domain(data.map(d => d.city)).range([0, width]).padding(0.2);
+            const cityScale = d3.scaleBand().domain(citiesData.map(d => d.city)).range([0, width]).padding(0.2);
             const colorScale = d3.scaleLinear().domain([min, median, max]).range(['yellow', 'orange', 'red']);
             
-            // binding the data
-            const drawSpace = d3.select('#graph').append('g').attr('id', state).style('transform', `translate(0px, ${verticalMovementOffset + (i)*1.5*height}px)`);
+            // binding the citiesData
+            const drawSpace = d3.select('#graph').append('g').attr('id', state).style('transform', `translate(0px, ${verticalMovementOffset + (index)*1.5*height}px)`);
             drawSpace.append('text').text(state).attr('y', '-20px').style('font', 'bold 40px Sans-serif');
-            drawSpace.append('g').selectAll('rect').data(data).enter().append('rect')
+
+            drawSpace.append('g').selectAll('rect').data(stackedData).enter().append("g")
+                .attr("fill", d => color(d.key))
+            .selectAll('rect')
+            .data(d => d)
+            .enter()
+            .append('rect')
                 .attr('width', cityScale.bandwidth())
-                .attr("height", d => height - barHeightScale(d.funds))
-                .attr('x', d => cityScale(d.city) + sideShift)
-                .attr('y', d => barHeightScale(d.funds))
-                .attr('fill', d => colorScale(d.funds));
+                .attr("height", d => barHeightScale(d[0]) - barHeightScale(d[1]))
+                .attr('x', d => cityScale(d.data.city) + sideShift)
+                .attr('y', d => barHeightScale(d[1]));
             
             // axis
             const xAxis = drawSpace.append('g');
