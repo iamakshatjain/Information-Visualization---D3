@@ -4,9 +4,25 @@
         <title>D3</title>
         <script type="text/javascript" src="https://d3js.org/d3.v6.min.js"></script>
     </head>
+    <style>
+        .toolTip {
+            position: absolute;
+            display: none;
+            min-width: 80px;
+            height: auto;
+            font: bold 15px Sans-serif;
+            background: none repeat scroll 0 0 #ffffff;
+            opacity: 0.9;
+            border: 1px solid black;
+            padding: 14px;
+            text-align: center;
+            z-index: 1001;
+            border-radius: 10px;
+        }
+    </style>
     <body>
         <h1 style="font:bold 40px Sans-serif">Fund Released under Smart Cities Mission during 2015-16 to 2019-20</h1>
-        <svg width="100%" height="17000" id="#container">
+        <svg width="100%" height="22500" id="#container">
             <g id="graph"></g>
             <g id="cities"></g>
         </svg>
@@ -18,6 +34,7 @@
             const svgHeight = container.attr('scrollHeight');
             container.attr('scrollHeight', svgHeight + 500);
         }
+        const tooltip = d3.select("body").append("div").attr("class", "toolTip");
 
         function showData(data) {
             // transforming data
@@ -58,7 +75,6 @@
             var stateToFundsArray = Object.keys(stateToFunds).map(key => ({state: key, ...stateToFunds[key]}));
             stateToFundsArray.forEach(state => state.availableFunds-=state.utilisedFunds);
             stateToFundsArray.sort((a, b) =>  (b.availableFunds+b.utilisedFunds) - (a.availableFunds+a.utilisedFunds));
-            console.log(stateToFundsArray);
 
             // creating stacked data
             const subgroups = ['utilisedFunds', 'availableFunds'];
@@ -72,7 +88,7 @@
             const median = d3.median(stateToFundsArray, d => +d.availableFunds+d.utilisedFunds);
             const max = d3.max(stateToFundsArray, d => +d.availableFunds+d.utilisedFunds);
 
-            const height = 500;
+            const height = 700;
             const width = 800;
             const sideShift = 150;
 
@@ -82,7 +98,6 @@
             
             // binding the data
             const drawSpace = d3.select('#graph');
-            
             drawSpace.selectAll('g').data(stackedData).enter().append("g")
                 .attr("fill", d => color(d.key))
             .selectAll('rect')
@@ -93,7 +108,16 @@
                 .attr("height", cityScale.bandwidth())
                 .attr('x', d => sideShift + widthScale(d[0]))
                 .attr('y', d => cityScale(d.data.state))
+            .on("mouseover", (event, d) => {
+                tooltip
+                    .style("left", event.pageX + "px")
+                    .style("top", event.pageY + "px")
+                    .style("display", "inline-block")
+                    .text(`${(d[0] !== 0) ? 'Available' : 'Used'} : Rs. ${Math.round((d[1] - d[0])*100)/100} Crore`);
+            })
+    		.on("mouseout", d =>  tooltip.style("display", "none"));
 
+            // legend - bar chart
             drawSpace.append("circle").attr("cx",width + sideShift).attr("cy",50).attr("r", 6).style("fill", "#e41a1c")
             drawSpace.append("circle").attr("cx",width + sideShift).attr("cy",80).attr("r", 6).style("fill", "#87ceeb")
             drawSpace.append("text").attr("x", width + sideShift + 20).attr("y", 50).text("Used Funds").style("font", "bold 15px Sans-serif").attr("alignment-baseline","middle")
@@ -148,7 +172,7 @@
                 .domain(subgroups)
                 .range(['#e41a1c','#87ceeb']);
 
-            const height = 300;
+            const height = 400;
             const width = 800;
             const sideShift = 50;
 
@@ -159,18 +183,37 @@
             
             // binding the citiesData
             const drawSpace = d3.select('#cities').append('g').attr('id', state).style('transform', `translate(0px, ${verticalMovementOffset + (index)*1.5*height}px)`);
-            drawSpace.append('text').text(state).attr('y', '-20px').style('font', 'bold 30px Sans-serif');
+            drawSpace.append('text').text(state).attr('y', '-50px').style('font', 'bold 35px Sans-serif');
             
             // pie chart
             const outerRadius = 100;
             const innerRadius = 40;
             const pie = d3.pie();
             const arc = d3.arc().innerRadius(innerRadius).outerRadius(outerRadius);
-            drawSpace.selectAll('path').data(pie(fundsPerYear)).enter().append('path')
+            const fundedYears = ['During 2015-16', 'During 2016-17', 'During 2017-18', 'During 2018-19', 'During 2019-20'];
+
+            drawSpace.append('g').selectAll('path').data(pie(fundsPerYear)).enter().append('path')
                 .attr('d', arc)
                 .style('transform', `translate(${width + outerRadius*2}px, ${1.5*outerRadius}px)`)
-                .attr("fill", d => pieColorScale(d.index));
+                .attr("fill", d => pieColorScale(d.index))
             
+            .on("mouseover", (event, d) => {
+                tooltip
+                    .style("left", event.pageX + "px")
+                    .style("top", event.pageY + "px")
+                    .style("display", "inline-block")
+                    .text(`${fundedYears[d.index]} : Rs. ${d.value} Crore (${Math.round(((d.endAngle - d.startAngle)*10000)/(2 * Math.PI))/100}%)`);
+                 })
+    		.on("mouseout", d =>  tooltip.style("display", "none"));
+
+            // label - pie chart
+            drawSpace.append('text').text('Amount of funds for the state per year')
+                .style("fill", "black")
+                .style("font", "18px Sans-serif")
+                .style('transform', `translate(${width + outerRadius}px, 0px)`)
+
+            
+            // legend - pie chart
             drawSpace.append("circle").attr("cx",width + 3*outerRadius + sideShift).attr("cy",50).attr("r", 6).style("fill", "yellow")
             drawSpace.append("text").attr("x", width + 3*outerRadius + sideShift + 20).attr("y", 50).text("During 2015-16").style("font", "bold 15px Sans-serif").attr("alignment-baseline","middle")
             
@@ -186,7 +229,9 @@
             drawSpace.append("circle").attr("cx",width + 3*outerRadius + sideShift).attr("cy",170).attr("r", 6).style("fill", "orange")
             drawSpace.append("text").attr("x", width + 3*outerRadius + sideShift + 20).attr("y", 170).text("During 2019-20").style("font", "bold 15px Sans-serif").attr("alignment-baseline","middle")
 
-            drawSpace.append('g').selectAll('rect').data(stackedData).enter().append("g")
+            // bar chart
+            const barSpace = drawSpace.append('g');
+            barSpace.selectAll('rect').data(stackedData).enter().append("g")
                 .attr("fill", d => color(d.key))
             .selectAll('rect')
             .data(d => d)
@@ -195,16 +240,30 @@
                 .attr('width', cityScale.bandwidth())
                 .attr("height", d => barHeightScale(d[0]) - barHeightScale(d[1]))
                 .attr('x', d => cityScale(d.data.city) + sideShift)
-                .attr('y', d => barHeightScale(d[1]));
+                .attr('y', d => barHeightScale(d[1]))
+            .on("mouseover", (event, d) => {
+                tooltip
+                    .style("left", event.pageX + "px")
+                    .style("top", event.pageY + "px")
+                    .style("display", "inline-block")
+                    .text(`${(d[0] !== 0) ? 'Available' : 'Used'} : Rs. ${Math.round((d[1] - d[0])*100)/100} Crore`);
+                 })
+    		.on("mouseout", d =>  tooltip.style("display", "none"));
 
-            drawSpace.append("circle").attr("cx",sideShift).attr("cy",height + 50).attr("r", 6).style("fill", "#e41a1c")
-            drawSpace.append("circle").attr("cx",4*sideShift).attr("cy",height + 50).attr("r", 6).style("fill", "#87ceeb")
-            drawSpace.append("text").attr("x", sideShift + 20).attr("y", height + 50).text("Used Funds").style("font", "bold 15px Sans-serif").attr("alignment-baseline","middle")
-            drawSpace.append("text").attr("x", 4*sideShift + 20).attr("y", height + 50).text("Available Funds").style("font", "bold 15px Sans-serif").attr("alignment-baseline","middle")
+            // legend - bar chart
+            barSpace.append("circle").attr("cx",sideShift).attr("cy",height + 50).attr("r", 6).style("fill", "#e41a1c")
+            barSpace.append("circle").attr("cx",4*sideShift).attr("cy",height + 50).attr("r", 6).style("fill", "#87ceeb")
+            barSpace.append("text").attr("x", sideShift + 20).attr("y", height + 50).text("Used Funds").style("font", "bold 15px Sans-serif").attr("alignment-baseline","middle")
+            barSpace.append("text").attr("x", 4*sideShift + 20).attr("y", height + 50).text("Available Funds").style("font", "bold 15px Sans-serif").attr("alignment-baseline","middle")
             
+            barSpace.append('text').text('Amount of funds for the state as per cities')
+                .style("fill", "black")
+                .style("font", "18px Sans-serif")
+                .style('transform', `translate(${width/4}px, -10px)`);
+
             // axis
-            const xAxis = drawSpace.append('g');
-            const yAxis = drawSpace.append('g');
+            const xAxis = barSpace.append('g');
+            const yAxis = barSpace.append('g');
             const axisB = d3.axisBottom(cityScale);
             const axisL = d3.axisLeft(barHeightScale).ticks(5);
             xAxis.call(axisB)
