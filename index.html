@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>D3</title>
+        <script type="text/javascript" src="https://d3js.org/d3.v6.min.js"></script>
+    </head>
+    <body>
+        <svg width="1200" height="15000" id="#container">
+            <g id="graph"></g>
+            <g id="cities"></g>
+        </svg>
+    </body>
+    <script>
+        d3.csv('smart-cities.csv').then(showData);
+        const container = d3.select('#container');
+        function raiseContainerHeight(height){
+            const svgHeight = container.attr('scrollHeight');
+            container.attr('scrollHeight', svgHeight + 500);
+        }
+
+        function showData(data) {
+            console.log(data);
+            console.log(container);
+            // transforming data
+            const stateToFunds = {};
+            for(let city of data){
+                const state = city['State/UT'];
+                const funds = city['Total Central Release'];
+                const utilisedFunds = city['Utilisation of GOI Funds'];
+                const cityName = city['Name of City'];
+                if(state !== 'Total')
+                {
+                    if(state in stateToFunds){
+                        stateToFunds[state]['funds'] += +funds;
+                        stateToFunds[state]['utilisedFunds'] += +utilisedFunds;
+                    } else {
+                        stateToFunds[state] = {}
+                        stateToFunds[state]['funds'] = +funds;
+                        stateToFunds[state]['utilisedFunds'] = +utilisedFunds;
+                        stateToFunds[state]['cities'] = [];
+                    }
+                    stateToFunds[state]['cities'].push({city:cityName, funds: +funds});
+                }
+            } 
+
+            // const stateToFundsArray = Object.keys(stateToFunds).map(key => ({state: key, data:stateToFunds[key]}))
+            // stateToFundsArray.sort((a, b) =>  b.data.funds - a.data.funds)
+            // console.log(stateToFundsArray);
+
+            // const subgroups = ['funds', 'utilisedFunds'];
+            // const statesDataArray = stateToFundsArray.map(d => d.data);
+            // console.log(statesDataArray);
+            // const stackedData = d3.stack().keys(subgroups)(statesDataArray);
+            // console.log(stackedData);
+
+            var stateToFundsArray = Object.keys(stateToFunds).map(key => ({state: key, ...stateToFunds[key]}));
+            stateToFundsArray.forEach(state => state.funds-=state.utilisedFunds);
+            stateToFundsArray.sort((a, b) =>  (b.funds+b.utilisedFunds) - (a.funds+a.utilisedFunds));
+            console.log(stateToFundsArray);
+
+            const subgroups = ['funds', 'utilisedFunds'];
+            const stackedData = d3.stack().keys(subgroups)(stateToFundsArray);
+            console.log(stackedData);
+            var color = d3.scaleOrdinal()
+                .domain(subgroups)
+                .range(['#e41a1c','#4daf4a']);
+
+            // scalling
+            // const min = d3.min(stateToFundsArray, d => +d.data.funds);
+            // const median = d3.median(stateToFundsArray, d => +d.data.funds);
+            // const max = d3.max(stateToFundsArray, d => +d.data.funds);
+            const min = d3.min(stateToFundsArray, d => +d.funds+d.utilisedFunds);
+            const median = d3.median(stateToFundsArray, d => +d.funds+d.utilisedFunds);
+            const max = d3.max(stateToFundsArray, d => +d.funds+d.utilisedFunds);
+
+            const height = 500;
+            const width = 500;
+            const sideShift = 150;
+
+            // raiseContainerHeight(height);
+
+            // scalling
+            const widthScale = d3.scaleLinear().domain([0, max]).range([0, width]);
+            const cityScale = d3.scaleBand().domain(stateToFundsArray.map(d => d.state)).range([0, height]).padding(0.2);
+            const colorScale = d3.scaleLinear().domain([min, median, max]).range(['yellow', 'orange', 'red']);
+            
+            // binding the data
+            // const drawSpace = d3.select('#graph').selectAll('rect').data(stateToFundsArray);
+            // drawSpace.enter().append('a').attr('href', d => `#${d.state}`).append('rect')
+            //     .attr('width', d => widthScale(d.data.funds))
+            //     .attr("height", cityScale.bandwidth())
+            //     .attr('x', sideShift)
+            //     .attr('y', d => cityScale(d.state))
+            //     .attr('fill', d => colorScale(d.data.funds));
+            const drawSpace = d3.select('#graph').selectAll('g').data(stackedData);
+            drawSpace.enter().append("g")
+                .attr("fill", d => color(d.key))
+            .selectAll('rect')
+            .data(d => d)
+            .enter()
+            .append('rect')
+                .attr('width', d => {console.log(d); return widthScale(d[1] - d[0])})
+                .attr("height", cityScale.bandwidth())
+                .attr('x', d => sideShift + widthScale(d[0]))
+                .attr('y', d => cityScale(d.data.state));
+            
+            // axis
+            const xAxis = d3.select('#graph').append('g');
+            const yAxis = d3.select('#graph').append('g');
+            const axisB = d3.axisBottom(widthScale)
+                            .ticks(5);
+            const axisL = d3.axisLeft(cityScale).ticks(5);
+            xAxis.call(axisB)
+                .style('transform', 'translate(' + sideShift + 'px,' + height + 'px)');
+            yAxis.call(axisL)
+                .style('transform', 'translate(' + sideShift + 'px,0px)');
+
+            // display city data
+            // for(let i=0; i<stateToFundsArray.length; i++)
+            //     displayCity(stateToFundsArray[i].data.cities, stateToFundsArray[i].state, height + 200, i);
+
+            // display city data
+            for(let i=0; i<stateToFundsArray.length; i++)
+                displayCity(stateToFundsArray[i].cities, stateToFundsArray[i].state, height + 200, i);
+        }
+
+        function displayCity(data, state, verticalMovementOffset, i){
+            // sorting based on funds
+            data.sort((a, b) => b.funds - a.funds);
+            const min = d3.min(data, d => +d.funds);
+            const median = d3.median(data, d => +d.funds);
+            const max = d3.max(data, d => +d.funds);
+
+            const height = 300;
+            const width = 500;
+            const sideShift = 50;
+
+            // scalling
+            const barHeightScale = d3.scaleLinear().domain([0, max]).range([height, 0]);
+            const cityScale = d3.scaleBand().domain(data.map(d => d.city)).range([0, width]).padding(0.2);
+            const colorScale = d3.scaleLinear().domain([min, median, max]).range(['yellow', 'orange', 'red']);
+            
+            // binding the data
+            const drawSpace = d3.select('#graph').append('g').attr('id', state).style('transform', `translate(0px, ${verticalMovementOffset + (i)*1.5*height}px)`);
+            drawSpace.append('text').text(state).attr('y', '-20px').style('font', 'bold 40px Sans-serif');
+            drawSpace.append('g').selectAll('rect').data(data).enter().append('rect')
+                .attr('width', cityScale.bandwidth())
+                .attr("height", d => height - barHeightScale(d.funds))
+                .attr('x', d => cityScale(d.city) + sideShift)
+                .attr('y', d => barHeightScale(d.funds))
+                .attr('fill', d => colorScale(d.funds));
+            
+            // axis
+            const xAxis = drawSpace.append('g');
+            const yAxis = drawSpace.append('g');
+            const axisB = d3.axisBottom(cityScale);
+            const axisL = d3.axisLeft(barHeightScale).ticks(5);
+            xAxis.call(axisB)
+                .style('transform', 'translate(' + sideShift + 'px,' + height + 'px)');
+            yAxis.call(axisL)
+                .style('transform', 'translate(' + sideShift + 'px,0px)');
+        }
+    </script>
+</html>
