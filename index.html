@@ -75,6 +75,8 @@
             var stateToFundsArray = Object.keys(stateToFunds).map(key => ({state: key, ...stateToFunds[key]}));
             stateToFundsArray.forEach(state => state.availableFunds-=state.utilisedFunds);
             stateToFundsArray.sort((a, b) =>  (b.availableFunds+b.utilisedFunds) - (a.availableFunds+a.utilisedFunds));
+            // adding index for scroll
+            stateToFundsArray.forEach((state, index) => {state.index = index});
 
             // creating stacked data
             const subgroups = ['utilisedFunds', 'availableFunds'];
@@ -95,7 +97,7 @@
             // scalling
             const widthScale = d3.scaleLinear().domain([0, max]).range([0, width]);
             const cityScale = d3.scaleBand().domain(stateToFundsArray.map(d => d.state)).range([0, height]).padding(0.2);
-            
+
             // binding the data
             const drawSpace = d3.select('#graph');
             drawSpace.selectAll('g').data(stackedData).enter().append("g")
@@ -108,6 +110,12 @@
                 .attr("height", cityScale.bandwidth())
                 .attr('x', d => sideShift + widthScale(d[0]))
                 .attr('y', d => cityScale(d.data.state))
+            .on('click', (event, d) => {
+                    window.scroll({
+                        top: height + d.data.index*600 + 200,
+                        left: 0,
+                        behavior: 'smooth'
+                    })})
             .on("mouseover", (event, d) => {
                 tooltip
                     .style("left", event.pageX + "px")
