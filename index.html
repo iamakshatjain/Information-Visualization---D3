@@ -30,7 +30,18 @@
                 <li>Bhavya Garg - 17UCS046</li>
             </ul>
         </p>
-        <p><h3 style="display: inline">Dated:</h3> December 24, 2020</p>
+        <p><h3 style="display: inline">Dated:</h3> December 23, 2020</p>
+        <p>
+            Note:
+            <ul>
+                <li>
+                    Hover on the graphs below to activate tooltip
+                </li>
+                <li>
+                    Click on the bars of the graph (States vs Funds) below to view the data of particular state 
+                </li>
+            </ul>
+        </p>
         <h1 style="font:bold 40px Sans-serif">Fund Released under Smart Cities Mission during 2015-16 to 2019-20</h1>
         <svg width="1300" height="22500" id="#container">
             <g id="graph"></g>
@@ -122,16 +133,17 @@
                 .attr('y', d => cityScale(d.data.state))
             .on('click', (event, d) => {
                     window.scroll({
-                        top: height + d.data.index*600 + 400,
+                        top: height + d.data.index*600 + 500,
                         left: 0,
                         behavior: 'smooth'
                     })})
             .on("mouseover", (event, d) => {
-                tooltip
+                let totalFunds = Math.round((d.data.availableFunds + d.data.utilisedFunds)*100)/100;
+                return  tooltip
                     .style("left", event.pageX + "px")
                     .style("top", event.pageY + "px")
                     .style("display", "inline-block")
-                    .text(`${(d[0] !== 0) ? 'Available' : 'Used'} : Rs. ${Math.round((d[1] - d[0])*100)/100} Crore`);
+                    .html(`<p>${(d[0] !== 0) ? 'Available' : 'Used'} : Rs. ${Math.round((d[1] - d[0])*100)/100} Crore (${Math.round((Math.round((d[1] - d[0])*100)/totalFunds)*100)/100}%)</p><p>Total : Rs. ${totalFunds} Crore </p>`);
             })
     		.on("mouseout", d =>  tooltip.style("display", "none"));
 
@@ -144,9 +156,8 @@
             // axis
             const xAxis = drawSpace.append('g');
             const yAxis = drawSpace.append('g');
-            const axisB = d3.axisBottom(widthScale)
-                            .ticks(5);
-            const axisL = d3.axisLeft(cityScale).ticks(5);
+            const axisB = d3.axisBottom(widthScale);
+            const axisL = d3.axisLeft(cityScale);
             xAxis.call(axisB)
                 .style('transform', 'translate(' + sideShift + 'px,' + height + 'px)');
             xAxis.append("text") 
@@ -260,11 +271,12 @@
                 .attr('x', d => cityScale(d.data.city) + sideShift)
                 .attr('y', d => barHeightScale(d[1]))
             .on("mouseover", (event, d) => {
-                tooltip
+                let totalFunds = Math.round((d.data.availableFunds + d.data.utilisedFunds)*100)/100;
+                return tooltip
                     .style("left", event.pageX + "px")
                     .style("top", event.pageY + "px")
                     .style("display", "inline-block")
-                    .text(`${(d[0] !== 0) ? 'Available' : 'Used'} : Rs. ${Math.round((d[1] - d[0])*100)/100} Crore`);
+                    .html(`<p>${(d[0] !== 0) ? 'Available' : 'Used'} : Rs. ${Math.round((d[1] - d[0])*100)/100} Crore (${Math.round((Math.round((d[1] - d[0])*100)/totalFunds)*100)/100}%)</p><p>Total Funds: Rs. ${totalFunds} Crore</p>`);
                  })
     		.on("mouseout", d =>  tooltip.style("display", "none"));
 
@@ -283,7 +295,7 @@
             const xAxis = barSpace.append('g');
             const yAxis = barSpace.append('g');
             const axisB = d3.axisBottom(cityScale);
-            const axisL = d3.axisLeft(barHeightScale).ticks(5);
+            const axisL = d3.axisLeft(barHeightScale);
             xAxis.call(axisB)
                 .style('transform', 'translate(' + sideShift + 'px,' + height + 'px)');
             xAxis.append("text") 
